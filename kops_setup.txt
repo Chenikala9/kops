@@ -1,0 +1,72 @@
+#sudo  -i
+#vim .bashrc
+#export PATH=$PATH:/usr/local/bin/
+#source .bashrc
+install aws cli configuration
+======================
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+install kubectl
+============
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+ mv kubectl /usr/local/bin/
+kubectl version
+
+install kops
+=========
+curl -Lo kops https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64
+chmod +x kops
+sudo mv kops /usr/local/bin/kops
+ kops version
+
+create aws bucket
+==============
+aws s3 mb s3://(custom_name).flm.k8s
+export  KOPS_STATE_STORE=s3://(custom_name).flm.k8s
+
+ kops create cluster --name govardhan.k8s.local --zones ap-south-1a  --master-size t2.medium --node-size t2.micro --master-count 1 --node-count 2
+ 
+ kops update cluster --name govardhan.k8s.local --yes --admin
+--------------------------------------------
+it takes 5 minutes to create infra
+above command govardhan at place you give your wished name
+
+no need just causal
+-------------------------
+Suggestions:
+ * list clusters with: kops get cluster
+ * edit this cluster with: kops edit cluster govardhan.k8s.local
+ * edit your node instance group: kops edit ig --name=govardhan.k8s.local nodes-ap-south-1a
+ * edit your control-plane instance group: kops edit ig --name=govardhan.k8s.local control-plane-ap-south-1a
+
+==================================================
+setup ARGOCD 
+install helm
+=============
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+helm version
+
+install argocd
+------------------
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl get all -n argocd
+ kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+  yum install jq -y
+  export ARGOCD_SERVER=$(kubectl get svc argocd-server -n argocd -o json | jq -r '.status.loadBalancer.ingress[0].hostname // .status.loadBalancer.ingress[0].ip')
+  kubectl get svc argocd-server -n argocd -o json | jq -r '.status.loadBalancer.ingress[0].hostname // .status.loadBalancer.ingress[0].ip'
+
+if you need to generate password
+----------------------------------------
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode; echo
+
+username by default :admin
+
+if you want delete cluster:
+-------------------------------
+ kops delete cluster --name govardhan.k8s.local --state s3://prabhas.flm.k8s --yes
